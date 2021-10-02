@@ -2,15 +2,13 @@
 title: "R ventures"
 author: "Sarah Hu"
 date: "10/2/2021"
-output: 
-  html_document:
-    number_sections: true
-    theme: lumen
-    highlight: kate
-    collapsed: false
-    toc: true
-    toc_depth: 4
-    toc_float: true
+output:
+  rmdformats::downcute:
+    self_contained: true
+    thumbnails: true
+    lightbox: true
+    gallery: false
+    highlight: tango
     
 knit: (function(input_file, encoding) {
   out_dir <- 'docs';
@@ -19,33 +17,48 @@ knit: (function(input_file, encoding) {
  output_file=file.path(dirname(input_file), out_dir, 'index.html'))})
 
 ---
-
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, cache = TRUE)
+library(knitr)
+library(rmdformats)
+
+## Global options
+options(max.print="75")
+opts_chunk$set(echo=FALSE,
+	             cache=TRUE,
+               prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+opts_knit$set(width=75)
 ```
+
 # Introduction
 
 The sections below are a compilation of recommended resources in R and common data wrangling practices I use in R that I've 'tutorial-ized'. I welcome additions and recommendations! Note that if it is written below, I probably use it often in my own data analysis.
 
 First, make sure you're familiar with your R set up. I typically code in R Studio and there are already a ton of great resources for installing and navigating R and R Studio. Everyone's set up may be a little bit different - I've compiled some resources and notes on each resource that might help you decide on how to proceed.
 
-## Installing R & RStudio
+[About me](https://shu251.github.io/sarah-hu/)
 
-### Tutorials on R installation & start-up
+# Installing R & RStudio
+
+## Tutorials on R installation & start-up
 If you're brand new to R and the command line, explore the resources through Software Carpentry. This is a great resource for learning how to install RStudio on your computer and getting oriented in the R interface - [Introduction to R and RStudio](https://swcarpentry.github.io/r-novice-gapminder/).
 
 Through the [BVCN](https://biovcnet.github.io/) we offered an introduction to R using the browser-supported RStudio cloud. If you already have RStudio installed and working, you can follow [Lesson 1](https://github.com/biovcnet/biovcnet.github.io/wiki/TOPIC%3A-R). We even have a [video](https://www.youtube.com/watch?v=u6vgWyD351g&list=PL4K-daRUS2A9noShSQjLfFGnaXg7YelrO&index=2).
 
 Another fantastic resource is [Riffomonas](https://riffomonas.org/minimalR/). See Pat Schloss's instructions for [installing R](https://riffomonas.org/minimalR/00_installation.html). I prefer video content when learning new skills, so I appreciate the work Pat's put into his website and teaching mini R tutorials. 
 
-### R via Anaconda
+## R via Anaconda
 If your life is maintained through Anaconda environments, you may want to check out [my post on using conda and R](https://alexanderlabwhoi.github.io/post/anaconda-r-sarah/). This is how I run R on my computer and it works for me, but it is so I can maintain several R versions and separate environments for different project.
 
 # Importing data
 
 If you are unfamiliar with the command line and want to learn more about paths and how to navigate in your terminal I'd recommend following [this crash course in Unix](https://github.com/biovcnet/biovcnet.github.io/wiki/TOPIC%3A-Unix). The below instructions will assume you have an understanding of how R is installed on your computer and you can locate the files you need!
 
-_Note_ that gaining a little bit of experience in Unix and command line efficiency is recommended because this is the same mode of thinking required to build up your R environment and navigate to access various files. However, the same commands that work on the command line are not in the R programming language. While many of the words and terms are similar, when you launch R - you're entering an environment where the R language is required instead. 
+_Note_ that gaining a little bit of experience in Unix and command line efficiency is recommended because this is the same mode of thinking required to build up your R environment and navigate to access various files. However, the same commands that work on the command line are not in the R programming language. While many of the words and terms are similar, when you launch R - you're entering an environment where the R language is required instead.
+
 ## Data types that work best
 
 One of the more frustrating components of learning any computer language or program is _figuring out what I need to start_. The most common issues come from a lot of hidden characters and weird inconsistencies between computers and software. Two main recommendations:
@@ -53,13 +66,32 @@ One of the more frustrating components of learning any computer language or prog
 * Get familiar with _.csv_ file types. The way data is separated (is it a tab or a comma or a space?) in a data frame is what you need to be aware of when importing data into R. .csv files are a standard file type, so if you're sharing your data with a collaborator or friend, this is the most straight-forward way to do it to avoid any incompatibilities.
 
 
-## Examples of importing data
+## Example: importing data
 
-Grab your own .csv file or download one here. *To download*, right click
+Grab your own .csv file or download one here. *To download*, right click [here](https://github.com/shu251/r-ventures/blob/main/data-input/asv-gordaridge-18s-wide.csv) and select *Download Linked File As..*. Save this as a *.csv* file in a place you can find again.
 
-```{r}
+I have this file saved in a directory called *data-input/*. 
+
+```{r Example input .csv file, echo=TRUE}
 asv_18s_raw <- read.csv(file = "data-input/asv-gordaridge-18s-wide.csv")
 ```
+
+View this file in Excel and your favorite text editor to see what it looks like in various formats. You can also check it out in RStudio by running these
+```{r View newly imported data, message=FALSE, echo=TRUE}
+## Uncomment the below line and run in RStudio
+# View(asv_18s_raw)
+
+## Print out the first few lines of every column
+# head(asv_18s_raw)
+```
+
+
+Importing a *.txt* file. [Download from here](https://github.com/shu251/r-ventures/blob/main/data-input/asv-gordaridge-16s-wide.txt).
+```{r, echo=TRUE}
+asv_16s_raw <- read.delim(file = "data-input/asv-gordaridge-16s-wide.txt", sep = "\t")
+```
+
+Try the above commands and modify the *sep=* and *header=* options. Pull up the help menu to learn more by executing: ```?read.delim()``` and ```?read.csv()```. Being familiar with the terminology in these help menus is helpful for learning about the different file types that exist.
 
 
 ## Data management & organization
@@ -70,15 +102,17 @@ For each project I work on, I maintain a */data-input* folder (or directory) tha
 
 _I'd recommend_ you make up from rules for yourself. My main coding advice is always: _keep current you organized, so future you thanks past you_. Add lots of notes for yourself on how you organize your work and how you leave it! Then when you open it back up and realize you've forgotten everything - there is a nice note from past you. 
 
+To leave notes for yourself in R, use the *#* symbol. In RStudio the code will turn a separate color and this means it is non-executable (it won't think that line is code!). Use this to "comment" lines and add notes for yourself.
+
 As of now (mid-2021), I have one directory on my computer per project. Within that directory I have one RStudio project and directories for raw data, input and processed data, and output folders for products. My own rule is that I can re-create the entire directory file structure and outputs by running the R code with all the raw input data. 
 
-## Get data into R
-
-## Common _first steps_ to take in my newly imported data
 
 # Get basic stats from data
 
+
 # Data wrangling
+
+
 
 # Plotting my data
 
