@@ -19,6 +19,7 @@ knit: (function(input_file, encoding) {
 ---
 ```{r setup, include=FALSE}
 library(knitr)
+library(formatR)
 library(rmdformats)
 
 ## Global options
@@ -40,6 +41,7 @@ The sections below are a compilation of recommended resources in R and common da
 First, make sure you're familiar with your R set up. I typically code in R Studio and there are already a ton of great resources for installing and navigating R and R Studio. Everyone's set up may be a little bit different - I've compiled some resources and notes on each resource that might help you decide on how to proceed.
 
 [About me](https://shu251.github.io/sarah-hu/)
+
 
 # Installing R & RStudio
 
@@ -77,17 +79,17 @@ asv_18s_raw <- read.csv(file = "data-input/asv-gordaridge-18s-wide.csv")
 ```
 
 View this file in Excel and your favorite text editor to see what it looks like in various formats. You can also check it out in RStudio by running these
-```{r View newly imported data, message=FALSE, echo=TRUE}
+```{r View newly imported data, message=FALSE, echo=TRUE, results='hide'}
 ## Uncomment the below line and run in RStudio
 # View(asv_18s_raw)
 
 ## Print out the first few lines of every column
-# head(asv_18s_raw)
+head(asv_18s_raw)
 ```
 
 
 Importing a *.txt* file. [Download from here](https://github.com/shu251/r-ventures/blob/main/data-input/asv-gordaridge-16s-wide.txt).
-```{r, echo=TRUE}
+```{r Import 16s data, echo=TRUE}
 asv_16s_raw <- read.delim(file = "data-input/asv-gordaridge-16s-wide.txt", sep = "\t")
 ```
 
@@ -109,11 +111,287 @@ As of now (mid-2021), I have one directory on my computer per project. Within th
 
 # Get basic stats from data
 
+First, let's work with three different data sets. These are available [here](https://github.com/shu251/r-ventures/tree/main/data-input). Two ways to download them:
+* Right click to copy the link and in a terminal run ```wget <paste link here>```
+* Right click and select *Download Linked File As...*
+
+Follow along with [this lesson from Software Carpentry](https://swcarpentry.github.io/r-novice-gapminder/05-data-structures-part2/index.html) that details work in dataframes. First, generate this 'cats' dataset:
+
+```{r from Softwre carptentry cats, echo=TRUE}
+cats <- data.frame(coat = c("calico", "black", "tabby"),
+                    weight = c(2.1, 5.0, 3.2),
+                    likes_string = c(1, 0, 1))
+# write.csv(x = cats, file = "feline-data.csv", row.names = FALSE)
+```
+
+
+## Import example data
+
+This is tag-sequencing data from an expedition to the Gorda Ridge hydrothermal vent ecosystem.
+
+```{r, echo=FALSE}
+# Import 16S data
+asv_16s_raw <- read.delim(file = "data-input/asv-gordaridge-16s-wide.txt", sep = "\t")
+
+# Import 18S data
+asv_18s_raw <- read.csv(file = "data-input/asv-gordaridge-18s-wide.csv")
+```
+
+The first few things I do is to look at the summary statistics 
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
+# Dimensions of my data frame
+dim(asv_18s_raw)
+
+# Summary information
+summary(asv_18s_raw)
+```
+
+Since the example data I've provided are from Amplicon Sequence Variants (or ASVs), each row is an ASV (Feature.ID column) and each column is a sample.
+
+```{r, echo=TRUE, results='hide'}
+# Count number of unique ASVs
+length(unique(asv_18s_raw$Feature.ID))
+
+# list sample names in my data
+colnames(asv_18s_raw)
+```
 
 # Data wrangling
 
+I do all of my data wrangling and analysis using [Tidyverse](https://www.tidyverse.org) and associated R packages. Tutorials in Riffomonas and from BVCN review code in _base R_ and in _Tidyverse_. 
 
+Get started by installing *tidyverse*.
+```{r, echo=TRUE, results='hide', message=FALSE, warning=FALSE}
+# install.packages("tidyverse")
+library(tidyverse)
+```
+
+When I Google and troubleshoot my code, I typically type "R tidyverse _<how do I do X?>_". This way I get an answer (I favor Stackoverflow for this) that is within the Tidyverse world. I am more familiar with the grammar of these packages, so I learn more this way. 
+
+## Modify columns in my data frame
+
+Upon viewing my data from above, there's a few random columns I don't really want.
+
+Remove the column header *X*.
+```{r, echo=TRUE, results='hide'}
+select(asv_18s_raw, -X) 
+```
+
+Remove the column that starts with *Axial_*.
+```{r, echo=TRUE, results='hide'}
+select(asv_18s_raw, -starts_with("Axial_")) 
+```
+
+Combine these functions, also remove references sequences, and save to a new data frame.
+```{r, echo = FALSE, message=FALSE, warning=FALSE, results='hide'}
+asv_18s_mod <- select(asv_18s_raw, -starts_with("Axial_"), -X, -ReferenceSequence) 
+
+## View and compare with original data frame:
+# head(asv_18s_mod)
+# colnames(asv_18s_mod)
+dim(asv_18s_raw)
+dim(asv_18s_mod)
+```
+
+Let's introduce the [pipe](https://magrittr.tidyverse.org/reference/pipe.html) from magrittr (which is a part of tidyverse). We also want to change the name of my column from *Feature.ID* to *ASV*. So we can combine everything with a pipe-based structure. 
+
+```{r, echo = TRUE, message=FALSE, warning=FALSE, results='hide'}
+# Save to the same data frame output
+asv_18s_mod <- asv_18s_raw %>% 
+  select(-starts_with("Axial_"), -X, -ReferenceSequence) %>% 
+  select(ASV = `Feature.ID`, everything())
+
+# Add head at the end to troubleshoot as you go
+asv_18s_raw %>% 
+  select(-starts_with("Axial_"), -X, -ReferenceSequence) %>% 
+  select(ASV = `Feature.ID`, everything()) %>%
+  head
+```
+To continue exploring navigating with data frames, look at [Riffomonas](https://riffomonas.org/minimalR/05_aggregating_data.html) or [Software Carpentry](https://swcarpentry.github.io/r-novice-gapminder/05-data-structures-part2/index.html). 
+
+
+## Long versus short format
+
+Available within the tidyverse is the ```starwars``` example data. We can use this to quickly show a few examples. 
+Load the starwars example data.
+```{r, echo =TRUE}
+# library(tidyverse)
+data("starwars")
+```
+
+The data frame is already in wide format, so when we subset columns of interest we output the wide format. Select character name and the character's height and mass. 
+```{r, echo=TRUE}
+starwars %>% 
+  select(name, height, mass) %>% 
+  head
+```
+Repeat that, but let's chose to convert the height and mass columns to long format. The new column we create will be called *size*, which defines height or mass. 
+```{r, echo=TRUE}
+starwars %>% 
+  select(name, height, mass) %>% 
+  pivot_longer(cols = height:mass, names_to = "size") %>% head
+
+# ?pivot_longer() ## Check out the help menu too
+```
+## Convert data to long format
+
+In this example, all the sample names that I want put into long format start with *GordaRidge_*. I can use ```starts_with()``` to select all of them. 
+
+```{r, echo=TRUE, results='hide'}
+asv_18s_raw %>% 
+  select(-starts_with("Axial_"), -X, -ReferenceSequence) %>% 
+  select(ASV = `Feature.ID`, everything()) %>% 
+  # Pivot longer parameter:
+  pivot_longer(starts_with("GordaRidge_"), names_to = "samples") %>% head
+```
+
+## Separate sample names
+
+My sample names are a pretty long collection of underscores. Let's separate them.
+```{r, echo=TRUE, results='hide'}
+asv_18s_raw %>% 
+  select(-starts_with("Axial_"), -X, -ReferenceSequence) %>% 
+  select(ASV = `Feature.ID`, everything()) %>% 
+  pivot_longer(starts_with("GordaRidge_"), names_to = "samples") %>% 
+  # Added separate here:
+  separate(samples, c("Site", "VentID", "SampleType", "Year", "Rep"), sep = "_") %>% 
+  head
+```
+
+The default parameter in separate is to remove the original column that you separate. I often change this, because I want to keep as much of the original data frame intact. 
+
+Also, _there may be a warning or error message_ that stats there was missing information. This is because not all of my samples had replicates. So an "NA" was placed in these spots. We can ignore this.
+
+```{r, echo = TRUE, results='hide'}
+asv_18s_raw %>% 
+  select(-starts_with("Axial_"), -X, -ReferenceSequence) %>% 
+  select(ASV = `Feature.ID`, everything()) %>% 
+  pivot_longer(starts_with("GordaRidge_"), names_to = "samples") %>% 
+  # Set the remove argument to "FALSE"
+  separate(samples, c("Site", "VentID", "SampleType", "Year", "Rep"), sep = "_", remove = FALSE) %>% 
+  head
+```
+
+I also want to separate the taxonomic names. Let's add this step and set this equal to a new data frame.
+
+```{r, echo =TRUE, results='hide'}
+# Set equal to a new data frame
+asv_18s_mod <- asv_18s_raw %>% 
+  select(-starts_with("Axial_"), -X, -ReferenceSequence) %>% 
+  select(ASV = `Feature.ID`, everything()) %>% 
+  pivot_longer(starts_with("GordaRidge_"), names_to = "samples") %>% 
+  separate(samples, c("Site", "VentID", "SampleType", "Year", "Rep"), sep = "_", remove = FALSE) %>% 
+  # Separate taxa
+  separate(Taxon_updated, c("Kingdom", 
+    "Supergroup", "Division", "Class", "Order", "Family", "Genus", "Species"), sep = ";", 
+    remove = FALSE)
+```
+
+## Subset samples
+
+Now that my sample names are separated, there are a few sample types I do not want. I can _conditionally_ remove them.
+
+First, list unique values in my Sample types:
+```{r, echo=TRUE}
+unique(asv_18s_mod$SampleType)
+```
+I want to remove the Tx sample types (those are time points I don't want to look at for now). We will use the tidyverse function ```filter()``` for this.
+
+```{r, echo=TRUE, results='hide'}
+# Conditionally, define all of them as a character list
+remove_tx <- c("T24", "T0", "T36")
+```
+
+We can use filter by telling it that we _do not_ want to include the Sample Types equal to my list. ```filter(asv_18s_mod, !(SampleType %in% remove_tx))```. This is noted with the *!* outside of the *()*. If we remove that, we would select only Sample Types that appear in my list. ```filter(asv_18s_mod, SampleType %in% remove_tx)```
+
+Let's remove those time points and the control sample using two filter commands.
+```{r, echo = TRUE}
+asv_18s_filtered <- asv_18s_mod %>% 
+  filter(!(SampleType %in% remove_tx)) %>% 
+  filter(SampleType != "CTRL")
+
+unique(asv_18s_filtered$SampleType) #Controls and time points are not included in my sample types anymore.
+# head(asv_18s_filtered)
+```
+
+Another way we can use filter is to clean up data by value. In this case, I want to remove ASVs that have only 1 sequence.
+```{r, echo = TRUE}
+asv_18s_filtered <- asv_18s_mod %>% 
+  filter(!(SampleType %in% remove_tx)) %>% 
+  filter(SampleType != "CTRL") %>% 
+  # Value must be greater than 1
+  filter(value > 1)
+```
+
+## Summarize & average counts
+
+The next step is to really start learning some stuff from these data. I want to summarize by certain taxonomic levels, but I first want to average across replicates (Reps!). 
+
+For this, we will use the very useful ```group_by()``` function. This is so handy for data analysis in tidyverse, it is the primary reason the long format data are preferred (in my opinion).
+
+[group_by()](https://dplyr.tidyverse.org/reference/group_by.html) and other functions have their own informative help pages that you can find on the tidyverse website or via the help menu ```?group_by()``` in R. 
+
+### Average across samples
+
+Use ```group_by()``` to list all the columns you want in your final data frame. In this case, I am selecting everything expect for the columns that have information on the replicate IDs. This way, the ```mean()``` of the value will be taken among replicate samples. 
+
+We use ```summarise()``` to create a new table based on the information provided to ```group_by()```.
+
+```{r, echo = TRUE, results='hide'}
+# names(asv_18s_filtered)
+
+asv_18s_avg <- asv_18s_filtered %>% 
+  group_by(ASV, Taxon_updated, Site, VentID, SampleType) %>% 
+  summarise(AVERAGE = mean(value))
+```
+
+I didn't want to type out the different taxonomic levels into my groupby function, so let's separate those again. THEN summarize to the *Supergroup* level.
+
+```{r, echo = TRUE, results='hide'}
+asv_supergroup <- asv_18s_avg %>% 
+  separate(Taxon_updated, c("Kingdom", 
+    "Supergroup", "Division", "Class", "Order", "Family", "Genus", "Species"), sep = ";", 
+    remove = FALSE) %>% 
+  # Select supergroup and sample ID columns
+  group_by(Supergroup, VentID, SampleType) %>% 
+  summarise(SUM = sum(AVERAGE))
+```
 
 # Plotting my data
 
+## Simple bar plot
+
+Plot the Supergroup level relative abundance from data frame created above.
+```{r, echo=TRUE, fig.height=6, fig.width=7}
+ggplot(asv_supergroup, aes(x = VentID, y = SUM, fill = Supergroup)) +
+  geom_bar(stat = "identity", color = "black", position = "fill")
+```
+
+## Bar plot customization
+
+## Box & violin plots
+
+## Tile plots & heatmaps
+
+## UpsetR
+
 # Practical Ecology in R
+
+## Working with compositional data
+
+## PCA analysis
+
+## Clustering
+
+## Linear regression
+
+## Networks
+
+```{r, echo=FALSE}
+
+# TO DO LIST
+## Include a how to use in the introduction
+
+## commond tricks and tips for when you import messy data?
+```
+
