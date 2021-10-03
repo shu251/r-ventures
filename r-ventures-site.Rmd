@@ -42,6 +42,7 @@ First, make sure you're familiar with your R set up. I typically code in R Studi
 
 [About me](https://shu251.github.io/sarah-hu/)
 
+The below information is meant to be a quick guide to some common analyses and data visualization techniques in R. I recommend other tutorials along the way for newer R users.
 
 # Installing R & RStudio
 
