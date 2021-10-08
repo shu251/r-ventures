@@ -5,7 +5,7 @@ date: "10/2/2021"
 output:
   rmdformats::downcute:
     self_contained: true
-    thumbnails: true
+    thumbnails: false
     lightbox: true
     gallery: false
     highlight: tango
@@ -31,7 +31,7 @@ opts_chunk$set(echo=FALSE,
                comment=NA,
                message=FALSE,
                warning=FALSE)
-opts_knit$set(width=75)
+# opts_knit$set(width=75, fig.width=12, fig.height=8)
 ```
 
 # Introduction
@@ -296,7 +296,7 @@ First, list unique values in my Sample types:
 ```{r, echo=TRUE}
 unique(asv_18s_mod$SampleType)
 ```
-I want to remove the Tx sample types (those are time points I don't want to look at for now). We will use the tidyverse function ```filter()``` for this.
+I want to remove the **Tx** sample types (those are time points I don't want to look at for now). We will use the tidyverse function ```filter()``` for this.
 
 ```{r, echo=TRUE, results='hide'}
 # Conditionally, define all of them as a character list
@@ -305,8 +305,9 @@ remove_tx <- c("T24", "T0", "T36")
 
 We can use filter by telling it that we _do not_ want to include the Sample Types equal to my list. ```filter(asv_18s_mod, !(SampleType %in% remove_tx))```. This is noted with the *!* outside of the *()*. If we remove that, we would select only Sample Types that appear in my list. ```filter(asv_18s_mod, SampleType %in% remove_tx)```
 
+
 Let's remove those time points and the control sample using two filter commands.
-```{r, echo = TRUE}
+```{r, echo = TRUE, results='hide'}
 asv_18s_filtered <- asv_18s_mod %>% 
   filter(!(SampleType %in% remove_tx)) %>% 
   filter(SampleType != "CTRL")
@@ -326,17 +327,17 @@ asv_18s_filtered <- asv_18s_mod %>%
 
 ## Summarize & average counts
 
-The next step is to really start learning some stuff from these data. I want to summarize by certain taxonomic levels, but I first want to average across replicates (Reps!). 
+The next step is to really start learning some stuff from these data. I want to summarize by certain taxonomic levels, but I first want to average across replicates *(Reps!)*. 
 
-For this, we will use the very useful ```group_by()``` function. This is so handy for data analysis in tidyverse, it is the primary reason the long format data are preferred (in my opinion).
+For this, we will use the very useful ```group_by()``` function. This is very handy for data analysis in tidyverse, it is the primary reason the long format data are preferred (in my opinion).
 
-[group_by()](https://dplyr.tidyverse.org/reference/group_by.html) and other functions have their own informative help pages that you can find on the tidyverse website or via the help menu ```?group_by()``` in R. 
+> [group_by()](https://dplyr.tidyverse.org/reference/group_by.html) and other functions have their own informative help pages that you can find on the tidyverse website or via the help menu ```?group_by()``` in R. 
 
 ### Average across samples
 
-Use ```group_by()``` to list all the columns you want in your final data frame. In this case, I am selecting everything expect for the columns that have information on the replicate IDs. This way, the ```mean()``` of the value will be taken among replicate samples. 
+Listed columns in ```group_by()``` will be the columns you want in your final data frame. In this case, I am selecting everything expect for the columns that have information on the replicate IDs. This way, the ```mean()``` of the value will be taken among replicate samples. 
 
-We use ```summarise()``` to create a new table based on the information provided to ```group_by()```.
+We use ```summarise()``` to create a new table based on the information provided to ```group_by()```. I am creating a new data frame with a column *AVERAGE* that will be the mean of the sequence counts from the *value* column. 
 
 ```{r, echo = TRUE, results='hide'}
 # names(asv_18s_filtered)
@@ -344,9 +345,13 @@ We use ```summarise()``` to create a new table based on the information provided
 asv_18s_avg <- asv_18s_filtered %>% 
   group_by(ASV, Taxon_updated, Site, VentID, SampleType) %>% 
   summarise(AVERAGE = mean(value))
+
+## Above function calculates the mean across replicates (because replicate IDs were not included in the group_by argument)
 ```
 
-I didn't want to type out the different taxonomic levels into my groupby function, so let's separate those again. THEN summarize to the *Supergroup* level.
+After averaging across replicates, I now want sum sequence counts within a specific taxonomic group.
+
+I didn't want to type out the different taxonomic levels into my group_by function, so let's separate those again. THEN summarize to the *Supergroup* level. Additionally, for unassigned ASVs to the *Supergroup* level, the final mutate statement replaces _NA_ with _Eukaryote Unassigned_.
 
 ```{r, echo = TRUE, results='hide'}
 asv_supergroup <- asv_18s_avg %>% 
@@ -355,20 +360,111 @@ asv_supergroup <- asv_18s_avg %>%
     remove = FALSE) %>% 
   # Select supergroup and sample ID columns
   group_by(Supergroup, VentID, SampleType) %>% 
-  summarise(SUM = sum(AVERAGE))
+  summarise(SUM = sum(AVERAGE)) %>%
+  # Replace NAs in the Supergroup column
+  mutate(Supergroup = replace_na(Supergroup, "Eukaryote Unassigned"))
+
 ```
+The difference between ```summarize()``` and ```mutate()```, is that _summarize()_ generates a new data frame that is smaller than your original, while _mutate_ adds a column to your existing data frame.
+If the above command prints an error, note that it is likely because some of the separating taxonmy to the species level has left some columns blank.
 
 # Plotting my data
 
 ## Simple bar plot
 
 Plot the Supergroup level relative abundance from data frame created above.
-```{r, echo=TRUE, fig.height=6, fig.width=7}
+```{r, tidy=FALSE, fig.height=5, fig.width=7}
 ggplot(asv_supergroup, aes(x = VentID, y = SUM, fill = Supergroup)) +
   geom_bar(stat = "identity", color = "black", position = "fill")
 ```
 
 ## Bar plot customization
+
+Let's explore changing the aesthetics of this figure.
+
+### Custom colors (factoring)
+
+For bar plots, the outline of the bar is the ```color``` and I want the ```fill``` color to be associated with *Supergroup*. The ```fill``` parameter is inside the ```aes()``` argument in the first line of the ggplot code. 
+
+This means we can change the fill color manually or with built in palettes by adding a line ```scale_fill_manual()``` or ```scale_fill_brewer()```. 
+
+Try a few of the built-in brewer options:
+
+```{r, echo=TRUE, tidy=FALSE, fig.height=5, fig.width=7}
+ggplot(asv_supergroup, aes(x = VentID, y = SUM, fill = Supergroup)) +
+  geom_bar(stat = "identity", color = "black", position = "fill") +
+  # Set the fill color palette
+scale_fill_brewer(palette = "Set3")
+```
+Execute ```?scale_fill_brewer()``` to see the color options one can select with palette. 
+
+Often, we are working with too many categories or we want our own custom colors. For this example we will use the 10 categories within *Supergroup*. You can see how many classifications there are by typing ```length(unique(asv_supergroup$Supergroup))```. 
+
+```{r, echo=TRUE, tidy=FALSE, fig.height=5, fig.width=7}
+ggplot(asv_supergroup, aes(x = VentID, y = SUM, fill = Supergroup)) +
+  geom_bar(stat = "identity", color = "black", position = "fill") +
+  # Set 10 fill colors
+scale_fill_manual(values = c("#f768a1","#ef3b2c", "#fd8d3c", "#fff7bc", "#d95f0e", "#7fcdbb", "#238443","#2b8cbe", "#6a51a3","#bcbddc"))
+```
+But, what if we want to change the order of the items in the legend and assign colors to specific supergroups?
+
+First, *factor* the Supergroup column by adding a new column that lists the Supergroup factors in the order you want.
+```{r, tidy=FALSE, results='hide'}
+# Supergroup in the order I want
+supergroup_in_order <- c("Stramenopiles","Alveolata", "Rhizaria", "Archaeplastida", "Hacrobia", "Amoebozoa", "Apusozoa", "Excavata", "Opisthokonta", "Eukaryote Unassigned")
+
+# Factor, add column - set levels equal to the supergroup character list
+asv_supergroup$SUPERGROUP_ORDER <- factor(asv_supergroup$Supergroup, levels = supergroup_in_order)
+
+# List colors
+colors_ten <- c("#f768a1","#ef3b2c", "#fd8d3c", "#fff7bc", "#d95f0e", "#7fcdbb", "#238443","#2b8cbe", "#6a51a3","#bcbddc")
+
+# Set Supergroup equal to list of colors
+names(colors_ten) <- supergroup_in_order
+
+# View the new column in my data frame
+head(asv_supergroup)
+```
+Repeat ggplot with the new column as the fill argument and set the manual fill values to the list of colors.
+```{r, echo=TRUE, tidy=FALSE, fig.height=5, fig.width=7}
+# I've set the fill parameter to SUPERGROUP_ORDER, which is a factor that I set above
+ggplot(asv_supergroup, aes(x = VentID, y = SUM, fill = SUPERGROUP_ORDER)) +
+  geom_bar(stat = "identity", color = "black", position = "fill") +
+  # Set fill color to character list from above
+scale_fill_manual(values = colors_ten)
+```
+The reason we'd want to assign colors to specific Supergroups, is because there are cases where we'd want to remove a group. 
+
+Let's remove Opisthokonta, but keep the same color schema. We can use the pipe other tidy statements like ```filter()``` ahead of the ggplot statement to modify the data before it is plotted. 
+```{r, echo=TRUE, tidy=FALSE, fig.height=5, fig.width=7}
+# Start with the data frame
+asv_supergroup %>% 
+  filter(Supergroup != "Opisthokonta") %>% #Filter
+  # Add ggplot statement at end of pipe
+  ggplot(aes(x = VentID, y = SUM, fill = SUPERGROUP_ORDER)) +
+    geom_bar(stat = "identity", color = "black", position = "fill") +
+  # Set fill color to character list from above
+    scale_fill_manual(values = colors_ten)
+```
+
+### ```theme()```
+
+Now that we have our custom color schematic, we can also modify other components of the ggplot using ```theme()```. There are [built in ggplot themes](https://ggplot2.tidyverse.org/reference/ggtheme.html) or there is a long list of cosmetic changes you can make with [theme()](https://ggplot2.tidyverse.org/reference/theme.html).
+
+I want to rotate the labels along the x-axis, so I can use the theme argument ```axis.text.x``` to modify the text element of the plot. 
+
+```{r, echo=TRUE, tidy=FALSE, fig.height=5, fig.width=7}
+
+asv_supergroup %>% 
+  filter(Supergroup != "Opisthokonta") %>%
+  ggplot(aes(x = VentID, y = SUM, fill = SUPERGROUP_ORDER)) +
+    geom_bar(stat = "identity", color = "black", position = "fill") +
+    scale_fill_manual(values = colors_ten) +
+  ## Add theme component here:
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+### Label
 
 ## Box & violin plots
 
