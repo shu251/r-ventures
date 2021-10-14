@@ -451,7 +451,8 @@ asv_supergroup %>%
 
 Now that we have our custom color schematic, we can also modify other components of the ggplot using ```theme()```. There are [built in ggplot themes](https://ggplot2.tidyverse.org/reference/ggtheme.html) or there is a long list of cosmetic changes you can make with [theme()](https://ggplot2.tidyverse.org/reference/theme.html).
 
-I want to rotate the labels along the x-axis, so I can use the theme argument ```axis.text.x``` to modify the text element of the plot. 
+### Text modification
+I want to rotate the labels along the x-axis, so I can use the theme argument ```axis.text.x``` to modify the text element of the plot. I've also added *theme_bw()*.
 
 ```{r, echo=TRUE, tidy=FALSE, fig.height=5, fig.width=7}
 
@@ -460,13 +461,74 @@ asv_supergroup %>%
   ggplot(aes(x = VentID, y = SUM, fill = SUPERGROUP_ORDER)) +
     geom_bar(stat = "identity", color = "black", position = "fill") +
     scale_fill_manual(values = colors_ten) +
-  ## Add theme component here:
+  ## Add theme components here:
+  theme_bw() +
   theme(axis.text.x = element_text(angle = 90))
 ```
 
-### Label
+We can change the color, angle, and justification of the axis labels more. Try the commented out and theme option instead of the last two lines to see how this builds upon our base axis labels.
+
+```{r, echo=TRUE, tidy=FALSE, fig.height=5, fig.width=7}
+asv_supergroup %>% 
+  filter(Supergroup != "Opisthokonta") %>%
+  ggplot(aes(x = VentID, y = SUM, fill = SUPERGROUP_ORDER)) +
+    geom_bar(stat = "identity", color = "black", position = "fill") +
+    scale_fill_manual(values = colors_ten) +
+  ## Additional axis label modifications
+  theme_bw() +
+  # theme(axis.text.x = element_text(angle = 45, color = "black"))
+  theme(axis.text.x = element_text(angle = 45, color = "black", face = "bold", size = 12),
+        axis.text.y = element_text(color = "black", face = "bold", size = 12))
+```
+
+In ggplot2 we also need to include a horizontal or vertical justification, or *hjust* and *vjust*.
+```{r, echo=TRUE, tidy=FALSE, fig.height=5, fig.width=7}
+asv_supergroup %>% 
+  filter(Supergroup != "Opisthokonta") %>%
+  ggplot(aes(x = VentID, y = SUM, fill = SUPERGROUP_ORDER)) +
+    geom_bar(stat = "identity", color = "black", position = "fill") +
+    scale_fill_manual(values = colors_ten) +
+  ## Additional axis label modifications
+  ## hjust and vjust added for x axis.
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, color = "black", face = "bold", 
+                                   size = 12, hjust = 1, vjust = 1),
+        axis.text.y = element_text(color = "black", face = "bold", size = 12))
+```
+
+This hjust and vjust argument can also be explained using this figure:
+
+```{r out.width ="50%", echo=FALSE}
+knitr::include_graphics("figures-images/hjust-vjust.png")
+```
+
+[Source from Stackoverflow](https://stackoverflow.com/questions/7263849/what-do-hjust-and-vjust-do-when-making-a-plot-using-ggplot)
+
+
+### Label axes
+
+To label the x and y axis, we can use the function ```labs()```, so we can assign *x = "x-axis label"*, *y = "y-axis label"*, and *title = "optional figure title"*. In the below example, I've only added a y-axis label and left the x-axis label blank. This is because I already have my samples named along the x-axis.
+
+```{r, echo=TRUE, tidy=FALSE, fig.height=5, fig.width=7}
+asv_supergroup %>% 
+  filter(Supergroup != "Opisthokonta") %>%
+  ggplot(aes(x = VentID, y = SUM, fill = SUPERGROUP_ORDER)) +
+    geom_bar(stat = "identity", color = "black", position = "fill") +
+    scale_fill_manual(values = colors_ten) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, color = "black", 
+                                   size = 12, hjust = 1, vjust = 1),
+        axis.text.y = element_text(color = "black", size = 12)) +
+  ## Add axis labels
+  labs(x = "", y = "Relative abundance")
+```
+
+
+
 
 ## Box & violin plots
+
+
 
 ## Tile plots & heatmaps
 
