@@ -524,11 +524,188 @@ asv_supergroup %>%
 ```
 
 
-
+A parting note on bar plots - consider when a box plot (or violin plot) is more appropriate than a bar plot.
 
 ## Box & violin plots
 
+As an example, will use the _Star Wars_ dataset through tidyverse again.
+```{r, echo=TRUE, tidy=FALSE}
+library(tidyverse)
 
+# First what is the data I'm looking at on Tatooine
+# View(starwars)
+
+tatooine <- starwars %>% 
+  filter(homeworld == "Tatooine") %>% # select only those from Tatooine
+  data.frame
+```
+
+
+How many species are on Tatooine?
+
+```{r, echo=TRUE, tidy=FALSE}
+unique(starwars$species); length(unique(starwars$species))
+unique(tatooine$species); length(unique(tatooine$species))
+```
+
+Let us examine the number of species on Tatooine.
+
+```{r, echo=TRUE, tidy=FALSE}
+starwars %>% 
+  filter(homeworld == "Tatooine") %>%
+  group_by(species, homeworld) %>%
+  summarise(MEAN_height = mean(height), MEDIAN_height = median(height),
+            MAX_height = max(height), MIN_height = min(height),
+            MEAN_mass = mean(mass), MEDIAN_mass = median(mass))
+```
+
+Try it as a bar plot first.
+
+```{r, echo=TRUE, tidy=FALSE}
+ggplot(tatooine, aes(x = species, y = height)) +
+  geom_bar(stat = "identity")
+```
+
+
+Examine data as a histogram.
+
+```{r, echo=TRUE, tidy=FALSE}
+hist((filter(tatooine, species == "Human"))$height)  
+
+hist((filter(tatooine, species == "Droid"))$mass)  
+```
+
+A better way to represent this data is with a box plot.
+
+```{r, echo=TRUE, tidy=FALSE}
+ggplot(tatooine, aes(x = species, y = height)) +
+  geom_boxplot()
+```
+
+In these box plots, the middle of the box is the median. The upper and lower hinges are the 1st and 3rd quartiles (25th and 75th percentiles). Whiskers on either side represent the largest and lowest value - outliers from this will be shown as data points.
+
+We can add data points on top of the box plot.
+
+```{r, echo=TRUE, tidy=FALSE}
+ggplot(tatooine, aes(x = species, y = height)) +
+  geom_boxplot() +
+  geom_point()
+```
+
+Or try it with ```geom_jitter()```
+
+```{r, echo=TRUE, tidy=FALSE}
+ggplot(tatooine, aes(x = species, y = height)) +
+  geom_boxplot() +
+  geom_jitter()
+```
+
+Repeat this box plot & data points with mass.
+
+```{r, echo=TRUE, tidy=FALSE}
+ggplot(tatooine, aes(x = species, y = mass)) +
+  geom_boxplot() +
+  geom_jitter()
+```
+We can also add aesthetics similar to what we did above with the bar plot and set the plot equal to an R object.
+
+```{r, echo=TRUE, tidy=FALSE}
+# Let's add aesthetics and set it equal to a variable
+bar_num_species <- ggplot(tatooine, aes(x = species)) +
+  geom_bar(stat = "count", width = 0.4, color = "black", fill = "orange") +
+  # Note different in color vs. fill with ggplot
+  theme_bw() + # always google themes!
+  labs(x = "Species", y = "Total number found on Tatooine") +
+  theme(axis.text.x = element_text(face = "bold", color = "black"))
+
+
+bar_num_species
+```
+### Facets
+Example of pivoting to long format and using ```facet_grid()```.
+
+Create long format star wars data set
+
+```{r, tidy=FALSE}
+starwars_long <- starwars %>%
+  select(name, height, mass, homeworld, species) %>% # select columns that I want
+  filter(homeworld == "Tatooine") %>% # grab only species from tatooine
+  pivot_longer(cols = height:mass, names_to = "MEASUREMENT", values_to = "VALUE") %>% # wrangle to long format
+  data.frame
+```
+
+
+```{r, tidy=FALSE}
+# Now we can plot BOTH measurements (height and mass) using "facet_grid()"
+ggplot(starwars_long, aes(x = species, y = VALUE)) +
+  geom_jitter() +
+  geom_boxplot() +
+  facet_grid(. ~ MEASUREMENT)
+```
+And an example where we will assign colors to the species in our plot first:
+
+```{r, echo=TRUE, tidy=FALSE}
+# Factor colors:
+species_order <- c("Human", "Droid")
+species_color <- c("#c51b8a", "#31a354")
+
+starwars_long$SPECIES_ORDER <- factor(starwars_long$species, levels = species_order)
+names(species_color) <- species_order
+
+#
+height_mass <- ggplot(starwars_long, aes(x = species, y = VALUE)) +
+  geom_jitter() +
+  geom_boxplot(aes(fill = species), color = "black") +
+  scale_fill_manual(values = species_color) +
+  facet_grid(. ~ MEASUREMENT) + # Play with this
+  labs(x = "Species", y = "Value") +
+  theme_bw() +
+  theme(axis.text = element_text(color = "black"),
+        strip.background = element_blank(),
+        legend.position = "none")
+
+height_mass
+
+height_mass %+% subset(starwars_long, species %in% "Human")
+height_mass %+% subset(starwars_long, species %in% "Droid")
+```
+
+
+## Combining plots
+
+We can use the R package "patchwork"
+```{r}
+library(patchwork)
+```
+
+
+Lets create a section plot called _count_.
+
+```{r, echo=TRUE, tidy=FALSE}
+count <- ggplot(starwars_long, aes(x = species)) +
+  geom_bar(stat = "count", aes(fill = species), color = "black") +
+  scale_fill_manual(values = species_color) +
+  labs(x = "Species", y = "Count") +
+  theme_bw() +
+  theme(axis.text = element_text(color = "black"),
+        strip.background = element_blank(),
+        legend.position = "none")
+```
+
+
+Use pathwork to stitch them together.
+Either side by side:
+
+```{r}
+height_mass + count
+height_mass | count
+```
+Or on top of one another:
+
+```{r}
+plot <- height_mass / count
+plot + plot_annotation(tag_levels = 'A')
+```
 
 ## Tile plots & heatmaps
 
