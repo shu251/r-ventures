@@ -498,7 +498,7 @@ asv_supergroup %>%
 
 This hjust and vjust argument can also be explained using this figure:
 
-```{r out.width ="50%", echo=FALSE}
+```{r out.width ="60%", echo=FALSE}
 knitr::include_graphics("figures-images/hjust-vjust.png")
 ```
 
@@ -709,25 +709,238 @@ plot + plot_annotation(tag_levels = 'A')
 
 ## Tile plots & heatmaps
 
-## UpsetR
-
-# Practical Ecology in R
-
-## Working with compositional data
-
-## PCA analysis
-
-## Clustering
-
-## Linear regression
-
-## Networks
-
-```{r, echo=FALSE}
-
-# TO DO LIST
-## Include a how to use in the introduction
-
-## commond tricks and tips for when you import messy data?
+Lets use the _Star Wars_ dataset through tidyverse again.
+```{r, echo=TRUE, tidy=FALSE}
+library(tidyverse)
+# First what is the data I'm looking at on Tatooine
+# View(starwars)
 ```
 
+For a simple tile plot or heat map, lets plot character name to height and mass. Of course this needs to be in long format first.
+
+**To add some additional skills, below I show how to use the 'pipe' or %>%  in R. And how we can modify dataframes without creating new R objects.
+
+```{r}
+starwars %>% 
+  select(name, height, mass) %>% 
+  pivot_longer(cols = c("height", "mass"), names_to = "TRAIT", values_to = "VALUE")
+```
+
+Here I show how we can use ```geom_tile()```. First, lets isolate droids only.
+
+```{r, fig.height=3, fig.width=2}
+starwars %>% 
+  filter(species == "Droid") %>% 
+  select(name, height, mass) %>% 
+  pivot_longer(cols = c("height", "mass"), names_to = "TRAIT", values_to = "VALUE") %>% 
+  
+  ggplot(aes(x = TRAIT, y = name, fill = VALUE)) +
+  geom_tile()
+```
+
+Now modify some of the aesthetics and ggplot theme.
+```{r, fig.height=3, fig.width=2}
+starwars %>% 
+  filter(species == "Droid") %>% 
+  select(name, height, mass) %>% 
+  pivot_longer(cols = c("height", "mass"), names_to = "TRAIT", values_to = "VALUE") %>% 
+  
+  ggplot(aes(x = TRAIT, y = name, fill = VALUE)) +
+  geom_tile(color = "black") +
+  theme(legend.position = "right", panel.grid.major = element_blank(), 
+    panel.grid.minor = element_blank(), panel.border = element_blank(), panel.background = element_blank(), 
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, color = "black", 
+        size = 8), axis.text.y = element_text(color = "black", size = 8), strip.background = element_blank(), 
+    strip.text.y = element_text(hjust = 0, vjust = 0.5, angle = 0), strip.text.x = element_text(hjust = 0, 
+        vjust = 0.5, angle = 0)) + labs(x = "Droid trait", y = "")
+```
+
+This isn't that informative because there are only two traits shown here, and the values are not comparable (height is length and mass is weight!). But this demonstrates the general workflow for how to create a heatmap in R. There are several options to modify the color schematic, let's explore those first and then move on to a more complicated example.
+
+```{r, fig.height=3, fig.width=2}
+starwars %>% 
+  filter(species == "Droid") %>% 
+  select(name, height, mass) %>% 
+  pivot_longer(cols = c("height", "mass"), names_to = "TRAIT", values_to = "VALUE") %>% 
+  
+  ggplot(aes(x = TRAIT, y = name, fill = VALUE)) +
+  geom_tile(color = "black") +
+  theme(legend.position = "right", panel.grid.major = element_blank(), 
+    panel.grid.minor = element_blank(), panel.border = element_blank(), panel.background = element_blank(), 
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, color = "black", 
+        size = 8), axis.text.y = element_text(color = "black", size = 8), strip.background = element_blank(), 
+    strip.text.y = element_text(hjust = 0, vjust = 0.5, angle = 0), strip.text.x = element_text(hjust = 0, 
+        vjust = 0.5, angle = 0)) + labs(x = "Droid trait", y = "") +
+  scale_fill_gradient(
+    low = "#ffeda0",
+    high = "#bd0026",
+    space = "Lab",
+    na.value = "grey",
+    guide = "colourbar",
+    aesthetics = "fill"
+)
+```
+
+To include custom color schematics and sequential breaks see [this page for more information.](https://ggplot2.tidyverse.org/reference/scale_gradient.html)
+
+
+### Heat map instead of bar plot
+
+Return to the bar plot from above and remake it as a heat map.
+
+To start again: Grab your own .csv file or download one here. *To download*, right click [here](https://github.com/shu251/r-ventures/blob/main/data-input/asv-gordaridge-18s-wide.csv) and select *Download Linked File As..*. Save this as a *.csv* file in a place you can find again.
+
+I have this file saved in a directory called *data-input/*. 
+
+```{r, echo=TRUE}
+asv_18s_raw <- read.csv(file = "data-input/asv-gordaridge-18s-wide.csv")
+```
+
+Repeat data modification in fewer steps - form new R object called 'asv_18s_forheat'
+```{r}
+remove_tx <- c("T24", "T0", "T36")
+
+asv_18s_forheat <- asv_18s_raw %>% 
+  select(-starts_with("Axial_"), -X, -ReferenceSequence) %>% 
+  select(ASV = `Feature.ID`, everything()) %>% 
+  pivot_longer(starts_with("GordaRidge_"), names_to = "samples") %>% 
+  separate(samples, c("Site", "VentID", "SampleType", "Year", "Rep"), sep = "_", remove = FALSE) %>% 
+  # Separate taxa
+  separate(Taxon_updated, c("Kingdom", 
+    "Supergroup", "Division", "Class", "Order", "Family", "Genus", "Species"), sep = ";", 
+    remove = FALSE) %>% 
+  filter(!(SampleType %in% remove_tx)) %>% 
+  filter(SampleType != "CTRL") %>% 
+  filter(value > 0)
+```
+
+A strength of the heat map for making taxonomy plots is that you can typically include more information. In the above example, we averaged across replicates and summed to the supergroup level. We can include division and class this time.
+
+```{r}
+asv_18s_class <- asv_18s_forheat %>% 
+  group_by(ASV, Taxon_updated, Site, VentID, SampleType) %>% 
+  summarise(AVERAGE = mean(value)) %>% 
+  separate(Taxon_updated, c("Kingdom", 
+    "Supergroup", "Division", "Class", "Order", "Family", "Genus", "Species"), sep = ";", 
+    remove = FALSE) %>% 
+  group_by(Supergroup, Division, Class, VentID, SampleType) %>% 
+  summarise(SUM = sum(AVERAGE)) %>%
+  # Replace NAs in the Supergroup column
+  mutate(Supergroup = replace_na(Supergroup, "Eukaryote Unassigned"))
+```
+
+Lets try to create thee bar plot again, but focusing only on the supergroups: Rhizaria and Alveolata
+
+```{r, echo=TRUE, tidy=FALSE, fig.height=5, fig.width=7}
+
+asv_18s_class %>% 
+  filter(Supergroup == "Rhizaria" | Supergroup == "Alveolata") %>%
+  ggplot(aes(x = VentID, y = SUM, fill = Class)) +
+    geom_bar(stat = "identity", color = "black", position = "fill") +
+  ## Additional axis label modifications
+  ## hjust and vjust added for x axis.
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, color = "black", face = "bold", 
+                                   size = 12, hjust = 1, vjust = 1),
+        axis.text.y = element_text(color = "black", face = "bold", size = 12))
+```
+**This is way too many colors! 
+
+Convert to a heat map, but first need to transform the value data to relative abundance. 
+
+```{r, echo=TRUE, tidy=FALSE, fig.height=5, fig.width=7}
+asv_18s_class %>% 
+  filter(Supergroup == "Rhizaria" | Supergroup == "Alveolata") %>%
+  group_by(VentID) %>% 
+  mutate(SAMPLE_TOTAL = sum(SUM),
+         RelAbun = SUM/SAMPLE_TOTAL) %>% 
+  ggplot(aes(x = VentID, y = RelAbun, fill = Class)) +
+  # Modified position = "stack" here to demonstrate that it is the same outcome as position = "fill"
+    geom_bar(stat = "identity", color = "black", position = "stack") +
+  ## Additional axis label modifications
+  ## hjust and vjust added for x axis.
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, color = "black", face = "bold", 
+                                   size = 12, hjust = 1, vjust = 1),
+        axis.text.y = element_text(color = "black", face = "bold", size = 12))
+```
+NOW, let's convert to a heatmap.
+
+```{r, fig.width=5, fig.height=7}
+asv_18s_class %>% 
+  filter(Supergroup == "Rhizaria" | Supergroup == "Alveolata") %>%
+  group_by(VentID) %>% 
+  mutate(SAMPLE_TOTAL = sum(SUM),
+         RelAbun = SUM/SAMPLE_TOTAL) %>% 
+  # Change x and y parameters, and fill with Relative Abundance
+  ggplot(aes(x = VentID, y = Class, fill = RelAbun)) +
+    geom_tile() +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, color = "black", face = "bold", 
+                                   size = 12, hjust = 1, vjust = 1),
+        axis.text.y = element_text(color = "black", face = "bold", size = 12))
+```
+
+Repeat with theme changes
+```{r, fig.width=5, fig.height=7}
+asv_18s_class %>% 
+  filter(Supergroup == "Rhizaria" | Supergroup == "Alveolata") %>%
+  group_by(VentID) %>% 
+  mutate(SAMPLE_TOTAL = sum(SUM),
+         RelAbun = SUM/SAMPLE_TOTAL) %>% 
+  # Change x and y parameters, and fill with Relative Abundance
+  ggplot(aes(x = VentID, y = Class, fill = RelAbun)) +
+  geom_tile(color = "black") +
+  theme(legend.position = "right", panel.grid.major = element_blank(), 
+    panel.grid.minor = element_blank(), panel.border = element_blank(), panel.background = element_blank(), 
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, color = "black", 
+        size = 8), axis.text.y = element_text(color = "black", size = 8), strip.background = element_blank(), 
+    strip.text.y = element_text(hjust = 0, vjust = 0.5, angle = 0), strip.text.x = element_text(hjust = 0, 
+        vjust = 0.5, angle = 0)) + labs(x = "Samples", y = "Class") +
+  scale_fill_gradient(
+    low = "#ffeda0",
+    high = "#bd0026",
+    space = "Lab",
+    na.value = "grey",
+    guide = "colourbar",
+    aesthetics = "fill"
+)
+```
+
+All of the classes are listed together. We can use facet wrap to separate by Supergroup.
+
+```{r, fig.width=5, fig.height=7}
+asv_18s_class %>% 
+  filter(Supergroup == "Rhizaria" | Supergroup == "Alveolata") %>%
+  group_by(VentID) %>% 
+  mutate(SAMPLE_TOTAL = sum(SUM),
+         RelAbun = SUM/SAMPLE_TOTAL) %>% 
+  # Change x and y parameters, and fill with Relative Abundance
+  ggplot(aes(x = VentID, y = Class, fill = RelAbun)) +
+  geom_tile(color = "black") +
+  theme(legend.position = "right", panel.grid.major = element_blank(), 
+    panel.grid.minor = element_blank(), panel.border = element_blank(), panel.background = element_blank(), 
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, color = "black", 
+        size = 8), axis.text.y = element_text(color = "black", size = 8), strip.background = element_blank(), 
+    strip.text.y = element_text(hjust = 0, vjust = 0.5, angle = 0), strip.text.x = element_text(hjust = 0, 
+        vjust = 0.5, angle = 0)) + labs(x = "Samples", y = "Class") +
+  scale_fill_gradient(
+    low = "#ffeda0",
+    high = "#bd0026",
+    space = "Lab",
+    na.value = "grey",
+    guide = "colourbar",
+    aesthetics = "fill"
+) +
+  facet_grid(Supergroup ~ ., scales = "free")
+```
+
+To explore these plots in more detail, see these examples:
+* [Hu et al. 2021 code](https://shu251.github.io/protist-gordaridge-2021/#71_Re-curate_taxonomic_levels_(higher_resolution))
+
+* [Hu et al. in review](https://shu251.github.io/microeuk-amplicon-survey/#22_Heat_map_at_class_level)
+
+
+## Other resources for plotting data
+
+* [Advanced ggplot in R](https://microbiaki.github.io/workshop_t2/) | Software Carpentries course taught at WHOI
